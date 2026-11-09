@@ -78,6 +78,20 @@ function goalFrom(q: Record<string, string | undefined>): PlanGoal {
   return { mode, ctx, quantId: q.quant || undefined, memory, workload };
 }
 
+export function isSafeMethod(method: string): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+}
+
+/** A page served from this machine, on any port (the Vite dev server runs on 5173). */
+export function isLocalOrigin(origin: string): boolean {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin);
+}
+
+/** `application/json; charset=utf-8` → `application/json` */
+export function mimeEssence(contentType: string | undefined): string {
+  return (contentType ?? '').split(';')[0].trim().toLowerCase();
+}
+
 export function createApp(opts: ServerOptions, session: EngineSession) {
   const app = new Hono();
   const jobs = new Jobs();
@@ -91,13 +105,19 @@ export function createApp(opts: ServerOptions, session: EngineSession) {
     return { measured, calibration: preview ? undefined : calibration, ownEngineBytes: preview ? 0 : await ownEngineBytes() };
   };
 
-  // Only answer requests addressed to this machine (blocks DNS-rebinding attacks), and
-  // require JSON on writes so a random web page can't trigger downloads with a simple form post.
+  // Only answer requests addressed to this machine (blocks DNS-rebinding attacks), and stop
+  // other websites from driving the app through the visitor's browser (CSRF).
   app.use('*', async (c, next) => {
     const host = (c.req.header('host') ?? '').replace(/:\d+$/, '');
     if (!['127.0.0.1', 'localhost', '[::1]'].includes(host)) return c.text('Forbidden host', 403);
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && c.req.method !== 'OPTIONS' && c.req.path.startsWith('/api/')) {
-      if (!(c.req.header('content-type') ?? '').includes('application/json')) return c.json({ error: 'Expected application/json' }, 415);
+    if (!isSafeMethod(c.req.method)) {
+      // Browsers always send Origin on cross-site writes. Tools like curl or editor plugins send none.
+      const origin = c.req.header('origin');
+      if (origin !== undefined && !isLocalOrigin(origin)) return c.json({ error: 'Forbidden origin' }, 403);
+      // Match the MIME type exactly: `text/plain; x=application/json` is sent cross-site without a preflight.
+      if (c.req.path.startsWith('/api/') && mimeEssence(c.req.header('content-type')) !== 'application/json') {
+        return c.json({ error: 'Expected application/json' }, 415);
+      }
     }
     await next();
   });
