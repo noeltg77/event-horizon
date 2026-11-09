@@ -1,0 +1,32 @@
+{
+  "name": "localmax-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/ui",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build -w @localmax/ui && npm run build -w localmax",
+    "start": "node packages/cli/dist/index.js",
+    "dev": "concurrently -n api,ui -c yellow,green \"npm run dev -w localmax\" \"npm run dev -w @localmax/ui\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/cli --noEmit && tsc -p packages/ui --noEmit",
+    "lint": "eslint .",
+    "catalog": "node scripts/build-catalog.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "concurrently": "10.0.6",
+    "eslint": "10.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

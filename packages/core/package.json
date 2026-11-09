@@ -1,0 +1,13 @@
+{
+  "name": "@localmax/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hardware profiler, planner, tuner and engine manager for localmax",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "systeminformation": "5.33.16"
+  }
+}
